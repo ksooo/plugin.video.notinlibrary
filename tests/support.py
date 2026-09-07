@@ -1,4 +1,8 @@
-"""Minimal xbmc* module stubs so the add-on can be exercised outside Kodi."""
+"""A simulated Kodi for the tests: xbmc* stubs, a file tree and a base case.
+
+Importing this module installs the stubs, so it has to come before any import
+of resources.lib.
+"""
 
 import json
 import os
@@ -228,3 +232,179 @@ def reset():
     del JSONRPC_CALLS[:], CONFIRMATIONS[:]
     CONFIRM_ANSWER[0] = True
     PLUGIN_STATE.clear()
+
+
+# The add-on modules must not be imported before the stubs above are in place.
+import os  # noqa: E402
+import shutil  # noqa: E402
+import sys  # noqa: E402
+import unittest  # noqa: E402
+from urllib.parse import urlencode  # noqa: E402
+
+sys.path.insert(0, ADDON_DIR)
+
+from resources.lib.router import Router  # noqa: E402
+
+BASE_URL = 'plugin://plugin.video.notinlibrary/'
+
+
+def directory(path):
+    """Return a directory item as Files.GetDirectory reports it."""
+    return {'label': path.rstrip('/').rsplit('/', 1)[-1], 'file': path,
+            'filetype': 'directory'}
+
+
+def video(path):
+    """Return a video file item as Files.GetDirectory reports it."""
+    return {'label': path.rsplit('/', 1)[-1], 'file': path, 'filetype': 'file'}
+
+
+def imported(path, member='movies'):
+    """Mark the path as known to the video library and return its file item."""
+    LIBRARY[member].append(path)
+    return video(path)
+
+
+def build_tree():
+    """Fill the simulated sources and directories."""
+    reset_library()
+    SOURCES[:] = [
+        {'label': 'Video Playlists', 'file': 'special://videoplaylists/'},
+        {'label': 'Movies', 'file': 'smb://nas/movies/'},
+        {'label': 'TV Shows', 'file': 'smb://nas/tv/'},
+        {'label': 'Complete', 'file': 'smb://nas/complete/'},
+        {'label': 'Some Add-on', 'file': 'plugin://plugin.video.whatever/'},
+    ]
+    TREE.clear()
+    TREE.update({
+        # Kodi's own playlists pseudo source. Playlist extensions are part of
+        # the video extensions, so without the path filter this would show up.
+        'special://videoplaylists/': [
+            video('special://videoplaylists/Unwatched.xsp'),
+        ],
+        'smb://nas/movies/': [
+            directory('smb://nas/movies/Known Film (1999)/'),
+            directory('smb://nas/movies/New Film (2020)/'),
+            directory('smb://nas/movies/Disc Film (2001)/'),
+            directory('smb://nas/movies/Mixed/'),
+            directory('smb://nas/movies/New Disc/'),
+            imported('smb://nas/movies/Loose Known.mkv'),
+            video('smb://nas/movies/Loose Unknown.mkv'),
+            # Not a video, must never be listed.
+            {'label': 'poster.jpg', 'file': 'smb://nas/movies/poster.jpg',
+             'filetype': 'file'},
+        ],
+        'smb://nas/movies/Known Film (1999)/': [
+            imported('smb://nas/movies/Known Film (1999)/movie.mkv'),
+        ],
+        'smb://nas/movies/New Film (2020)/': [
+            video('smb://nas/movies/New Film (2020)/movie.mkv'),
+        ],
+        # A disc folder that is in the library: one medium, must stay hidden
+        # instead of offering its VOB and IFO files as missing videos.
+        'smb://nas/movies/Disc Film (2001)/': [
+            directory('smb://nas/movies/Disc Film (2001)/VIDEO_TS/'),
+        ],
+        'smb://nas/movies/Disc Film (2001)/VIDEO_TS/': [
+            imported('smb://nas/movies/Disc Film (2001)/VIDEO_TS/VIDEO_TS.IFO'),
+            video('smb://nas/movies/Disc Film (2001)/VIDEO_TS/VTS_01_1.VOB'),
+        ],
+        # The same, but not in the library: has to show up as one entry.
+        'smb://nas/movies/New Disc/': [
+            directory('smb://nas/movies/New Disc/VIDEO_TS/'),
+        ],
+        'smb://nas/movies/New Disc/VIDEO_TS/': [
+            video('smb://nas/movies/New Disc/VIDEO_TS/VIDEO_TS.IFO'),
+            video('smb://nas/movies/New Disc/VIDEO_TS/VTS_01_1.VOB'),
+        ],
+        # A folder holding an imported movie next to a newly copied one.
+        'smb://nas/movies/Mixed/': [
+            imported('smb://nas/movies/Mixed/Imported.mkv'),
+            video('smb://nas/movies/Mixed/Minions and Monsters.mkv'),
+        ],
+        # TV: one episode is imported, the other is not.
+        'smb://nas/tv/': [
+            directory('smb://nas/tv/Some Show/'),
+        ],
+        'smb://nas/tv/Some Show/': [
+            directory('smb://nas/tv/Some Show/Season 01/'),
+        ],
+        'smb://nas/tv/Some Show/Season 01/': [
+            imported('smb://nas/tv/Some Show/Season 01/S01E01.mkv', 'episodes'),
+            video('smb://nas/tv/Some Show/Season 01/S01E02.mkv'),
+        ],
+        'plugin://plugin.video.whatever/': [
+            video('plugin://plugin.video.whatever/clip.mkv'),
+        ],
+        # Readable, but part of no source at all.
+        'smb://elsewhere/stuff/': [
+            video('smb://elsewhere/stuff/orphan.mkv'),
+        ],
+        # Fully scanned source, must not show up at all.
+        'smb://nas/complete/': [
+            directory('smb://nas/complete/Sub/'),
+        ],
+        'smb://nas/complete/Sub/': [
+            imported('smb://nas/complete/Sub/done.mkv'),
+        ],
+    })
+
+
+class AddonTestCase(unittest.TestCase):
+    """Gives every test a fresh file tree, an empty profile and clean stubs."""
+
+    def setUp(self):
+        shutil.rmtree(PROFILE_DIR, ignore_errors=True)
+        build_tree()
+        reset()
+
+    def tearDown(self):
+        shutil.rmtree(PROFILE_DIR, ignore_errors=True)
+
+    # -- driving the add-on -------------------------------------------------
+
+    def dispatch(self, **params):
+        """Run the plugin with the given parameters and return its items.
+
+        Each item is a (url, label, is_folder) triple.
+        """
+        reset()
+        query = '?' + urlencode(params) if params else ''
+        Router([BASE_URL, '1', query]).dispatch()
+        return [(item[0], item[1].label, item[2]) for item in PLUGIN_ITEMS]
+
+    def act(self, action, path):
+        """Run a plugin action, the way a context menu entry does."""
+        reset()
+        Router([BASE_URL, '-1',
+                '?' + urlencode({'action': action, 'path': path})]).dispatch()
+
+    def top_level(self):
+        return self.dispatch()
+
+    def missing(self, path=''):
+        return self._listing('missing', path)
+
+    def excluded(self, path=''):
+        return self._listing('excluded', path)
+
+    def _listing(self, mode, path):
+        params = {'action': 'list', 'mode': mode}
+        if path:
+            params['path'] = path
+        return self.dispatch(**params)
+
+    # -- reading what came back ---------------------------------------------
+
+    @staticmethod
+    def labels(items):
+        return [label for _, label, _ in items]
+
+    @staticmethod
+    def list_items():
+        """The ListItem objects of the last listing, for art and context menus."""
+        return [item[1] for item in PLUGIN_ITEMS]
+
+    @staticmethod
+    def profile_path(name):
+        return os.path.join(PROFILE_DIR, name)

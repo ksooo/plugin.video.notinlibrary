@@ -149,22 +149,21 @@ On macOS the add-on folder is `~/Library/Application Support/Kodi/addons`.
 
 ### Tests
 
-The add-on logic runs without Kodi. `tests/kodi_stubs.py` installs minimal stand-ins for the `xbmc*`
+The add-on logic runs without Kodi. `tests/support.py` installs minimal stand-ins for the `xbmc*`
 modules — including a simulated Kodi file tree and a fake JSON-RPC endpoint — so routing, scanning,
 the breadcrumbs and the exclusion handling behave as they would inside Kodi:
 
 ```sh
-python3 tests/run_tests.py
+python3 -m unittest discover -s tests -t .
 ```
 
-It prints one line per check, ends with a summary, and exits non-zero as soon as one check fails, so
-it can be dropped into CI as is. No dependencies beyond the standard library, and it can be run from
-any working directory.
+Plain `unittest`, no dependencies beyond the standard library. Every test starts from a fresh tree
+and an empty profile, so they can run in any order.
 
-The simulated tree in `build_tree()` covers the cases that are easy to get wrong: a movie already in
-the library next to one that is not, a disc folder that is a library entry of its own, a TV show
-whose folder is in the library while an episode is missing, a fully scanned source, Kodi's playlists
-pseudo source, and a path belonging to no source at all.
+The simulated tree in `support.build_tree()` covers the cases that are easy to get wrong: a movie
+already in the library next to one that is not, a disc folder that is a library entry of its own, a
+TV show whose folder is in the library while an episode is missing, a fully scanned source, Kodi's
+playlists pseudo source, and a path belonging to no source at all.
 
 What the tests cannot cover: the real JSON-RPC replies, playback, and anything the skin does — the
 `Container.Content()` dependency of the icons, for instance, only shows up in a running Kodi.
