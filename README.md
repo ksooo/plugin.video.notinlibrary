@@ -2,6 +2,8 @@
 
 A Kodi video add-on that finds the videos in your sources which have no entry in the video library.
 
+![icon](resources/icon.png)
+
 ## What it does
 
 The add-on walks through all video sources of the active Kodi profile and lists every video file
@@ -20,6 +22,21 @@ This makes it easy to spot media that was never picked up by the scraper — bec
 issue, a missing content setting, or simply because the library scan was never run for that folder.
 
 The add-on only reads your media. It never moves, renames or deletes anything.
+
+## Requirements
+
+Kodi 20 (Nexus) or newer — the add-on sets the file path on a list item through the
+`InfoTagVideo` setters, which were added with that release.
+
+## Setup
+
+1. Install the add-on.
+2. Open it under **Videos ▸ Add-ons ▸ Not in Library**. It starts searching at once;
+   there is nothing to configure.
+
+Both of its sides can also be reached directly, as
+`plugin://plugin.video.notinlibrary/?action=list&mode=missing` and `…&mode=excluded`. Add
+either as a favourite or as a video source to get to it straight from the video window.
 
 ## Getting things into the library
 
@@ -78,10 +95,6 @@ interrupted write cannot truncate it, and a damaged file is treated as an empty 
 breaking the add-on. Excluding something has no effect on Kodi itself — it changes nothing about how
 Kodi scans, it only filters this add-on's listings.
 
-Both sides are reachable directly, as
-`plugin://plugin.video.notinlibrary/?action=list&mode=missing` and `…&mode=excluded`. Add
-either as a favourite or as a video source to get to it straight from the video window.
-
 ## How it decides what is missing
 
 Directories are listed with `Files.GetDirectory` using `media: "files"`, and the video library is
@@ -130,71 +143,6 @@ hold missing videos and costs a full walk only for those that do not.
 
 The search is done live on every navigation step; nothing is cached. It can be interrupted at any
 time by shutting Kodi down or by leaving the add-on.
-
-## Requirements
-
-Kodi 20 (Nexus) or later — the add-on uses the `xbmc.python` 3.0.0 API.
-
-## Installation
-
-Copy or symlink this directory into your Kodi `addons` folder, for example:
-
-```sh
-ln -s "$PWD" ~/.kodi/addons/plugin.video.notinlibrary
-```
-
-On macOS the add-on folder is `~/Library/Application Support/Kodi/addons`.
-
-## Development
-
-### Tests
-
-The add-on logic runs without Kodi. `tests/support.py` installs minimal stand-ins for the `xbmc*`
-modules — including a simulated Kodi file tree and a fake JSON-RPC endpoint — so routing, scanning,
-the breadcrumbs and the exclusion handling behave as they would inside Kodi:
-
-```sh
-python3 -m unittest discover -s tests -t .
-```
-
-Plain `unittest`, no dependencies beyond the standard library. Every test starts from a fresh tree
-and an empty profile, so they can run in any order.
-
-The simulated tree in `support.build_tree()` covers the cases that are easy to get wrong: a movie
-already in the library next to one that is not, a disc folder that is a library entry of its own, a
-TV show whose folder is in the library while an episode is missing, a fully scanned source, Kodi's
-playlists pseudo source, and a path belonging to no source at all.
-
-What the tests cannot cover: the real JSON-RPC replies, playback, and anything the skin does — the
-`Container.Content()` dependency of the icons, for instance, only shows up in a running Kodi.
-
-### Building
-
-```sh
-python3 tools/make_zip.py
-```
-
-Writes `../plugin.video.notinlibrary-<version>.zip`, taking the version from `addon.xml`. The
-archive holds only what Kodi runs: `tests/` and `tools/` stay out, as do the usual `.git`,
-`__pycache__` and `.pyc` noise.
-
-### Images
-
-The images are generated, not hand drawn:
-
-```sh
-python3 tools/make_icon.py        # icon.png, the add-on icon
-python3 tools/make_list_icons.py  # resources/media/, the two top level icons
-```
-
-The top level icons are a plus and a cross built from the same geometry, measured off Kodi's own
-`DefaultAddSource.png` (256×256, bars 122 long and 28 thick) so that the plus matches what skins use
-for "add". They ship with the add-on because no stock `Default*.png` offers a cross of matching
-weight — `DefaultVideoDeleted.png` is a film camera with a badge, not a plain cross.
-
-Note that skins only draw `ListItem.Icon` when the listing sets no content type. Estuary ties its
-icon layout to `Container.Content()`, and Kodi leaves the video root empty for the same reason, so
-the listings whose entries carry an icon set no content either.
 
 ## Licence
 

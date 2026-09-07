@@ -91,21 +91,50 @@ Kodi 22 on macOS, Estuary, a MySQL video library, NFS sources. Everything else
 backslashes — is reasoned about but untested. The path helpers in `scanner.py`
 handle both separators, which is the most likely place for a surprise.
 
-## Checking a real install
+## Tests
 
-Symlink the working copy into Kodi rather than installing a zip, so a change is
-one restart away:
+The add-on logic runs without Kodi. `tests/support.py` installs stand-ins for
+the `xbmc*` modules — a simulated file tree and a fake JSON-RPC endpoint — so
+routing, scanning, the breadcrumbs and the exclusion handling behave as they
+would inside Kodi:
 
 ```sh
-ln -s "$PWD" ~/.kodi/addons/plugin.video.notinlibrary
+python3 -m unittest discover -s tests -t .
 ```
 
-On macOS the folder is `~/Library/Application Support/Kodi/addons`.
+Plain `unittest`, nothing beyond the standard library. Every test starts from a
+fresh tree and an empty profile, so they run in any order.
+
+The tree in `support.build_tree()` covers the cases that are easy to get wrong:
+a movie already in the library next to one that is not, a disc folder that is a
+library entry of its own, a TV show whose folder is in the library while an
+episode is missing, a fully scanned source, Kodi's playlists pseudo source, and
+a path belonging to no source at all.
+
+Out of reach of the tests: the real JSON-RPC replies, playback, and everything
+the skin does.
+
+## Images
+
+The images are generated, not hand drawn:
+
+```sh
+python3 tools/make_icon.py        # resources/icon.png, the add-on icon
+python3 tools/make_list_icons.py  # resources/media/, the two top level icons
+```
+
+The top level icons are a plus and a cross built from the same geometry,
+measured off Kodi's own `DefaultAddSource.png` (256×256, bars 122 long and 28
+thick) so that the plus matches what skins use for "add". They ship with the
+add-on because no stock `Default*.png` offers a cross of matching weight —
+`DefaultVideoDeleted.png` is a film camera with a badge, not a plain cross.
+
+## Checking a real install
 
 Changes to `.py` files take effect the next time the add-on is opened — Kodi
 gives every plugin call a fresh sub-interpreter. Changes to `addon.xml`,
 `resources/settings.xml` and the `strings.po` files need a Kodi restart, a
-changed `icon.png` also a cleared texture cache.
+changed `resources/icon.png` also a cleared texture cache.
 
 Worth a look in `kodi.log` after a change: entries prefixed with
 `[plugin.video.notinlibrary]` are this add-on's own. Failed JSON-RPC calls are
