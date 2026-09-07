@@ -202,7 +202,7 @@ def main():
         output_path = sys.argv[1]
     else:
         output_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
-                                   'icon.png')
+                                   'resources', 'icon.png')
 
     write_png(output_path, render())
     print('wrote {} ({}x{})'.format(output_path, SIZE, SIZE))

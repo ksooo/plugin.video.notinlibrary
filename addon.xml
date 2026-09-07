@@ -2,11 +2,11 @@
 <addon id="plugin.video.notinlibrary"
        name="Not in Library"
        version="1.0.0"
-       provider-name="ksooo">
+       provider-name="Kai Sommerfeld">
   <requires>
     <import addon="xbmc.python" version="3.0.0"/>
   </requires>
-  <extension point="xbmc.python.pluginsource" library="main.py">
+  <extension point="xbmc.python.pluginsource" library="default.py">
     <provides>video</provides>
   </extension>
   <extension point="xbmc.addon.metadata">
@@ -22,7 +22,7 @@
     <news>v1.0.0 (2026-08-16)
 - Initial release.</news>
     <assets>
-      <icon>icon.png</icon>
+      <icon>resources/icon.png</icon>
     </assets>
   </extension>
 </addon>
