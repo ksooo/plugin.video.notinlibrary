@@ -1,2 +1,6 @@
+v1.0.1
+- Kodi 20 is now required, which is what the add-on needed all along
+- Internal clean-up, nothing else has changed in how the add-on works
+
 v1.0.0
 - Initial release
